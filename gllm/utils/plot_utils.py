@@ -159,43 +159,81 @@ def plot_gcode(gcode):
 
 def plot_user_specification(parsed_parameters):
     """Plots the CNC task in 2D."""
-
-    wp_dims = parsed_parameters['workpiece_diemensions']
-    start_point = parsed_parameters['starting_point']
-    tool_path = parsed_parameters['tool_path']
-    cut_depth = parsed_parameters['cut_depth'][0]
+    
+    # Handle None or invalid parsed_parameters
+    if parsed_parameters is None:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.text(0.5, 0.5, 'No parameters available for plotting', 
+                ha='center', va='center', transform=ax.transAxes, fontsize=12)
+        ax.set_title('CNC Task Visualization (2D) - No Data')
+        return plt
+    
+    if not isinstance(parsed_parameters, dict):
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.text(0.5, 0.5, 'Invalid parameters format for plotting', 
+                ha='center', va='center', transform=ax.transAxes, fontsize=12)
+        ax.set_title('CNC Task Visualization (2D) - Invalid Data')
+        return plt
+    
+    # Check for required keys with safe access
+    wp_dims = parsed_parameters.get('workpiece_diemensions', [50, 50])  # Default dimensions
+    start_point = parsed_parameters.get('starting_point', [0, 0])  # Default start point
+    tool_path = parsed_parameters.get('tool_path', [(0, 0, 0), (10, 10, 0)])  # Default path
+    cut_depth = parsed_parameters.get('cut_depth', [1])  # Default depth
+    
+    # Ensure we have valid data
+    if not wp_dims or len(wp_dims) < 2:
+        wp_dims = [50, 50]  # Default workpiece dimensions
+    
+    if not start_point or len(start_point) < 2:
+        start_point = [0, 0]  # Default starting point
+    
+    if not tool_path or len(tool_path) == 0:
+        tool_path = [(0, 0, 0), (10, 10, 0)]  # Default tool path
+    
+    if not cut_depth or len(cut_depth) == 0:
+        cut_depth = [1]  # Default cut depth
 
     fig, ax = plt.subplots(figsize=(6, 4))
 
-    # Plot workpiece as a rectangle
-    rect = plt.Rectangle((0, 0), wp_dims[0], wp_dims[1], 
-                         linewidth=2, edgecolor='k', facecolor='lightgray')
-    ax.add_patch(rect)
+    try:
+        # Plot workpiece as a rectangle
+        rect = plt.Rectangle((0, 0), wp_dims[0], wp_dims[1], 
+                             linewidth=2, edgecolor='k', facecolor='lightgray')
+        ax.add_patch(rect)
 
-    # Plot tool path
-    x_path, y_path, _ = zip(*tool_path)  # Ignore z-coordinates for 2D plot
+        # Plot tool path
+        x_path, y_path, _ = zip(*tool_path)  # Ignore z-coordinates for 2D plot
 
-    # Move to starting point if not already at the beginning
-    if tool_path and (start_point[0], start_point[1]) != tool_path[0]:
-        x_path = (start_point[0],) + x_path
-        y_path = (start_point[1],) + y_path
+        # Move to starting point if not already at the beginning
+        if tool_path and (start_point[0], start_point[1]) != tool_path[0]:
+            x_path = (start_point[0],) + x_path
+            y_path = (start_point[1],) + y_path
 
-    ax.plot(x_path, y_path, 'r-', linewidth=2, label='Tool Path')
+        ax.plot(x_path, y_path, 'r-', linewidth=2, label='Tool Path')
 
-    ax.set_xlabel('X (mm)')
-    ax.set_ylabel('Y (mm)')
-    ax.set_title('CNC Task Visualization (2D)')
-    ax.legend()
+        ax.set_xlabel('X (mm)')
+        ax.set_ylabel('Y (mm)')
+        ax.set_title('CNC Task Visualization (2D)')
+        ax.legend()
 
-    # Set axis limits to match workpiece dimensions
-    ax.set_xlim([0, wp_dims[0]])
-    ax.set_ylim([0, wp_dims[1]])
+        # Set axis limits to match workpiece dimensions
+        ax.set_xlim([0, wp_dims[0]])
+        ax.set_ylim([0, wp_dims[1]])
 
-    # Add cut depth as text annotation
-    ax.text(0.05, 0.95, f'Cut Depth: {cut_depth}mm', 
-            transform=ax.transAxes, verticalalignment='top')
+        # Add cut depth as text annotation
+        ax.text(0.05, 0.95, f'Cut Depth: {cut_depth[0]}mm', 
+                transform=ax.transAxes, verticalalignment='top')
 
-    plt.gca().set_aspect('equal', adjustable='box')  # Equal aspect ratio
+        plt.gca().set_aspect('equal', adjustable='box')  # Equal aspect ratio
+        
+    except Exception as e:
+        # If anything goes wrong, show an error message
+        ax.clear()
+        ax.text(0.5, 0.5, f'Error plotting visualization:\n{str(e)}', 
+                ha='center', va='center', transform=ax.transAxes, fontsize=10)
+        ax.set_title('CNC Task Visualization (2D) - Error')
+    
     return plt
 
 

@@ -58,7 +58,6 @@ def generate(state: GraphState, chain, user_inputs):
     # State
     messages = state["messages"]
     iterations = state["iterations"]
-    error = state["error"]
     
     # Solution
     gcode_response = generate_gcode_with_langchain(chain, user_inputs)
@@ -106,7 +105,7 @@ def code_check(state: GraphState, chain, user_inputs, parameters_string):
     
     # Check functional (semantic correctness)
     is_semantically_correct, semantic_error_msg = validate_functional_correctness(code_solution, parameters_string)
-    if not is_semantically_correct and 'milling' in user_inputs['Operation Type']:
+    if not is_semantically_correct and 'milling' in user_inputs.get('Operation Type', ''):
         print("---SEMANTIC CORRECTNESS CHECK: FAILED---")
         error_message = [("user", f"Your solution failed the code execution test: {semantic_error_msg}) Reflect on this error and your prior attempt to solve the problem. (1) State what you think went wrong with the prior solution and (2) try to solve this problem again. Return the FULL SOLUTION.")]
         messages += error_message
@@ -119,7 +118,7 @@ def code_check(state: GraphState, chain, user_inputs, parameters_string):
 
     # Check continuty
     # is_continuous, continuity_error_msg = validate_continuity(code_solution)
-    # if not is_continuous and 'milling' in user_inputs['Operation Type']:
+    # if not is_continuous and 'milling' in user_inputs.get('Operation Type', ''):
     #     print("---CONTINUITY CHECK: FAILED---")
     #     error_message = [("user", f"Your solution failed the code execution test: {continuity_error_msg}) Reflect on this error and your prior attempt to solve the problem. (1) State what you think went wrong with the prior solution and (2) try to solve this problem again. Return the FULL SOLUTION.")]
     #     messages += error_message
@@ -158,7 +157,7 @@ def code_check(state: GraphState, chain, user_inputs, parameters_string):
 
     # Check correct drilling
     is_correct_drilling, drilling_error_msg = validate_drilling_gcode(code_solution)
-    if not is_correct_drilling and 'drilling' in user_inputs['Operation Type']:
+    if not is_correct_drilling and 'drilling' in user_inputs.get('Operation Type', ''):
         print("---DRILLING CHECK: FAILED---")
         error_message = [("user", f"Your solution failed the code execution test: {drilling_error_msg}) Reflect on this error and your prior attempt to solve the problem. (1) State what you think went wrong with the prior solution and (2) try to solve this problem again. Return the FULL SOLUTION.")]
         messages += error_message
@@ -233,8 +232,8 @@ def construct_graph(model, user_inputs, parameters_string):
     builder = StateGraph(GraphState)
 
     # Define the nodes
-    builder.add_node("generate", lambda state: generate(state, model, user_inputs))  # generation solution
-    builder.add_node("check_code", lambda state: code_check(state, model, user_inputs, parameters_string))  # check code
+    builder.add_node("generate", lambda state: generate(state, model, user_inputs))
+    builder.add_node("check_code", lambda state: code_check(state, model, user_inputs, parameters_string))
 
     # Build graph
     builder.set_entry_point("generate")
@@ -248,7 +247,9 @@ def construct_graph(model, user_inputs, parameters_string):
         },
     )
 
-    memory = SqliteSaver.from_conn_string(":memory:")
-    graph = builder.compile(checkpointer=memory)
+    # REMOVE the memory and compile steps from this function
+    # memory = SqliteSaver.from_conn_string(":memory:")
+    # graph = builder.compile(checkpointer=memory)
 
-    return graph
+    # RETURN the uncompiled builder instance
+    return builder

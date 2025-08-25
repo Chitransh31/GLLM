@@ -18,8 +18,8 @@ import os
 import pygcode
 import tempfile
 import subprocess
-import itertools
 import streamlit as st
+import itertools
 from gllm.utils.plot_utils import plot_gcode, parse_coordinates, parse_gcode
 from gllm.utils.prompts_utils import REQUIRED_PARAMETERS
 from langchain_core.messages.ai import AIMessage
@@ -98,20 +98,20 @@ def generate_gcode_with_langchain(chain, user_inputs):
     
     final_prompt = (
         "Based on the details provided, generate a robust G-code for the CNC machining operation:\n\n"
-        f"Material: {user_inputs['Material']}\n"
+        f"Material: {user_inputs.get('Material', 'Not specified')}\n"
         f"Operation Details:\n"
-        f"Operation Type: {user_inputs['Operation Type']}\n"
-        f"Desired Shape: {user_inputs['Desired Shape']}\n"
-        f"Home Position: {user_inputs['Home Position']}\n"
-        f"Return Tool to Home After Execution: {user_inputs['Return Tool to Home After Execution']}\n"
-        f"Starting Point: {user_inputs['Starting Point']}\n"
-        f"Cutting Tool Path: {user_inputs['Cutting Tool Path']}\n"
-        f"Workpiece Dimensions: {user_inputs['Workpiece Dimensions']}\n"
-        f"Depth of Cut: {user_inputs['Depth of Cut']}\n"
-        f"Feed Rate: {user_inputs['Feed Rate']}\n"
-        f"Spindle Speed: {user_inputs['Spindle Speed']}\n"
-        f"Radius: {user_inputs['Radius']}\n"
-        f"Number of Shapes: {user_inputs['Number of Shapes']}\n"
+        f"Operation Type: {user_inputs.get('Operation Type', 'Not specified')}\n"
+        f"Desired Shape: {user_inputs.get('Desired Shape', 'Not specified')}\n"
+        f"Home Position: {user_inputs.get('Home Position', 'Not specified')}\n"
+        f"Return Tool to Home After Execution: {user_inputs.get('Return Tool to Home After Execution', 'Not specified')}\n"
+        f"Starting Point: {user_inputs.get('Starting Point', 'Not specified')}\n"
+        f"Cutting Tool Path: {user_inputs.get('Cutting Tool Path', 'Not specified')}\n"
+        f"Workpiece Dimensions: {user_inputs.get('Workpiece Dimensions', 'Not specified')}\n"
+        f"Depth of Cut: {user_inputs.get('Depth of Cut', 'Not specified')}\n"
+        f"Feed Rate: {user_inputs.get('Feed Rate', 'Not specified')}\n"
+        f"Spindle Speed: {user_inputs.get('Spindle Speed', 'Not specified')}\n"
+        f"Radius: {user_inputs.get('Radius', 'Not specified')}\n"
+        f"Number of Shapes: {user_inputs.get('Number of Shapes', 'Not specified')}\n"
         "If the number of shapes is larger than one, generate G-code for each shape separately and at the end combine the codes of all shapes. the cutting tool path must include numbers."
     )
     gcode_response = chain.invoke({'input':final_prompt})
@@ -260,14 +260,22 @@ def validate_z_levels(gcode_string, max_depth):
 
 def validate_functional_correctness(gcode_string, parameters_string):
     """
-    
+    Validate functional correctness of G-code against user-defined parameters
     """
+    # Handle None parameters_string
+    if parameters_string is None:
+        return True, None
+    
     x_points, y_points = parse_gcode(gcode_string)
     # print("Parsed G-code parameters", x_points, y_points)
 
     gcode_tool_path = [(x,y) for x, y in zip(x_points, y_points)]
 
     user_defined_parameters = parse_extracted_parameters(parameter_string=parameters_string)
+    
+    # Handle case where parse_extracted_parameters returns None
+    if user_defined_parameters is None:
+        return True, None
 
     if user_defined_parameters is not None:
          

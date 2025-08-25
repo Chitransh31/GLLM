@@ -152,27 +152,44 @@ def find_circular_path(parameters: dict):
     return path
 
 def parse_extracted_parameters(parameter_string):
+    # Handle None or empty parameter_string
+    if parameter_string is None or parameter_string == "":
+        return None
+    
+    # Ensure parameter_string is a string
+    if not isinstance(parameter_string, str):
+        return None
+    
     parameters = {}
     current_key = None
     parsed_parameters = {}
-    for line in parameter_string.splitlines():
-        if ": " in line:
-            key, value = line.split(": ", 1)
-            if key in REQUIRED_PARAMETERS:
-                parameters[key.strip()] = value.strip()
-                current_key = key.strip()
-            else:
-                # Handle cases where the key is missing
-                if current_key is not None:
-                    parameters[current_key] += " " + line  # Append to previous line
+    
+    try:
+        for line in parameter_string.splitlines():
+            if ": " in line:
+                key, value = line.split(": ", 1)
+                if key in REQUIRED_PARAMETERS:
+                    parameters[key.strip()] = value.strip()
+                    current_key = key.strip()
                 else:
-                    # Handle the case where there's no previous key (shouldn't happen ideally)
-                    print(f"Warning: Line without a valid key: {line}")
+                    # Handle cases where the key is missing
+                    if current_key is not None:
+                        parameters[current_key] += " " + line  # Append to previous line
+                    else:
+                        # Handle the case where there's no previous key (shouldn't happen ideally)
+                        print(f"Warning: Line without a valid key: {line}")
+    except Exception as e:
+        print(f"Error parsing parameters: {e}")
+        return None
 
-    parsed_parameters['workpiece_diemensions'] = extract_numerical_values(parameters=parameters, key='Workpiece Dimensions') 
-    parsed_parameters['starting_point'] = extract_numerical_values(parameters=parameters, key='Starting Point') 
-    parsed_parameters['home_position'] = extract_numerical_values(parameters=parameters, key='Home Position') 
-    parsed_parameters['tool_path'] = find_circular_path(parameters=parameters) if parameters["Desired Shape"] in ['circle', 'circular pocket', 'circular', 'Circular', 'Circular Pocket', 'Circle'] else extract_path(parameters=parameters, key='Cutting Tool Path')
-    parsed_parameters['cut_depth'] = extract_numerical_values(parameters=parameters, key='Depth of Cut') 
+    try:
+        parsed_parameters['workpiece_diemensions'] = extract_numerical_values(parameters=parameters, key='Workpiece Dimensions') 
+        parsed_parameters['starting_point'] = extract_numerical_values(parameters=parameters, key='Starting Point') 
+        parsed_parameters['home_position'] = extract_numerical_values(parameters=parameters, key='Home Position') 
+        parsed_parameters['tool_path'] = find_circular_path(parameters=parameters) if parameters.get("Desired Shape", "").lower() in ['circle', 'circular pocket', 'circular'] else extract_path(parameters=parameters, key='Cutting Tool Path')
+        parsed_parameters['cut_depth'] = extract_numerical_values(parameters=parameters, key='Depth of Cut') 
+    except Exception as e:
+        print(f"Error processing parsed parameters: {e}")
+        return None
 
     return parsed_parameters
