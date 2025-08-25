@@ -7,7 +7,7 @@ This repository contains scripts for generating and validating G-codes automatic
 ### Clone with submodules
 
 ```shell
-git clone https://github.com/mohamedyd/GLLM.git
+git clone https://github.com/Chitransh31/GLLM.git
 ```
 
 ### Install requirements
@@ -16,6 +16,19 @@ This project uses Python3.11. If not installed, you may install it via:
 ```shell
 sudo apt update
 sudo apt install python3.11
+```
+
+You can use pyenv to setup Python 3.11 in your repo folder
+```
+brew install pyenv
+~/.zprofile
+sudo ~/.zprofile
+vi ~/.zprofile
+echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.zshrc\necho '[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.zshrc\necho 'eval "$(pyenv init - zsh)"' >> ~/.zshrc
+vi ~/.zshrc
+pyenv versions
+pyenv install 3.11
+pyenv versions
 ```
 
 Then, install poetry and guide it to use python 3.11
@@ -48,6 +61,28 @@ export HUGGINGFACEHUB_API_TOKEN="YourHFTokenHere"
 Save and close the file. To apply the changes, source the file or restart your terminal:
 ```shell
 source ~/.bashrc
+```
+
+## Resolve library errors
+
+Most of the import library errors can be resolved using these library installation commands
+```
+pip3 install streamlit
+pip3 install openai
+pip3 install hub
+pip3 install -e /gllm
+pip3 install deeplake
+pip3 install hub
+pip3 install langchain
+pip3 install PyPDF2
+pip3 install langchain_community
+pip3 install langchain_chains
+pip3 install peft
+pip3 install pygcode
+pip3 install matplotlib
+pip3 install plotly
+pip3 install langgraph
+pip3 install langgraph-checkpoint-sqlite
 ```
 
 ## Usage
