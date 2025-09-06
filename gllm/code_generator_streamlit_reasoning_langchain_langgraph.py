@@ -30,6 +30,9 @@ import plotly.express as px  # Import Plotly Express
 from gllm.utils.params_extraction_utils import from_dict_to_text
 from langgraph.checkpoint.sqlite import SqliteSaver
 
+st.set_page_config(page_title="G-code Generator", layout="wide")
+
+
 
 def extract_parameters(description_text):
 
@@ -42,6 +45,31 @@ def extract_parameters(description_text):
 
 def main():
 
+    # Hide Streamlit default menu and footer
+    st.markdown(
+        """
+        <style>
+        /* remove header/footer/hamburger */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+
+        /* shrink top padding so content starts earlier */
+        div.block-container {
+            padding-top: 0rem;
+            padding-bottom: 1rem;
+        }
+
+        /* additional fallback selectors (Streamlit internal classes change over versions) */
+        .block-container { padding-top: 0rem; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    
+
+
     _printed = set()
     thread_id = str(uuid.uuid4())
     config = {
@@ -50,22 +78,32 @@ def main():
             "thread_id": thread_id,},
             "recursion_limit": 1000}
 
-    st.title("G-code Generator for CNC Machines")
+    # st.title("G-code Generator for CNC Machines")
     st.write("Please describe your CNC machining task in natural language:")
     input_description = st.text_area("Task Description", height=150)
 
-
-    # Drop-down menu for model selection
-    model_str = st.selectbox('Choose a Language Model:', 
-                            ('Zephyr-7b', 'GPT-3.5', 'Fine-tuned StarCoder', 'CodeLlama', 'DeepSeek-Coder-1B', 'Phi-3-Mini'), 
-                            index=1,
-                            help="Choose a model based on your system resources and requirements. GPT-3.5 requires API key, others use HuggingFace API.")
-    model = setup_model(model=model_str)
-
-    # Let the user choose whether to use structured or unstructured prompt
-    prompt_type = st.selectbox('Prompt Type:', ('Structured', 'Unstructured'), index=0)
-
     pdf_files = st.file_uploader("Upload PDF files with additional knowledge (RAG)", accept_multiple_files=True, type=['pdf'])
+
+    # ⚡ Collapsible menu for model and prompt settings
+    with st.expander("⚙️ Model & Prompt Settings", expanded=False):
+        # Drop-down menu for model selection
+        model_str = st.selectbox(
+            'Choose a Language Model:', 
+            ('Zephyr-7b', 'GPT-3.5', 'Fine-tuned StarCoder',
+            'CodeLlama', 'DeepSeek-Coder-1B', 'Phi-3-Mini'), 
+            index=1,
+            help="Choose a model based on your system resources and requirements. GPT-3.5 requires API key, others use HuggingFace API."
+        )
+        model = setup_model(model=model_str)
+
+        # Let the user choose whether to use structured or unstructured prompt
+        prompt_type = st.selectbox('Prompt Type:', ('Structured', 'Unstructured'), index=0)
+
+        disable_extract_button = False if prompt_type == 'Structured' else True    # Disable Parameter Extraction if user selects unstructured prompt
+
+        # user selects whether to use the task decomposor
+        st.session_state['decompose_task'] = st.selectbox("Decompose The task Description: ", ('Yes', 'No'), index=0, disabled=disable_extract_button)
+
 
     if "langchain_chain" not in st.session_state:
         if pdf_files:
@@ -95,7 +133,7 @@ def main():
     disable_extract_button = False if prompt_type == 'Structured' else True    # Disable Parameter Extraction if user selects unstructured prompt
 
     # user selects whether to use the task decomposor
-    st.session_state['decompose_task'] = st.selectbox("Decompose The task Description: ", ('Yes', 'No'), index=0, disabled=disable_extract_button)
+    # st.session_state['decompose_task'] = st.selectbox("Decompose The task Description: ", ('Yes', 'No'), index=0, disabled=disable_extract_button)
 
     extract_button = st.button("Extract Parameters", disabled=disable_extract_button)
     if extract_button and "langchain_chain" in st.session_state:
@@ -116,7 +154,7 @@ def main():
     if st.session_state['extracted_parameters']:
         display_extracted_parameters()
 
-    if st.button("Simulate the tool path (2D)", disabled=disable_extract_button):
+    if st.button("Simulate Tool Path (2D)", disabled=disable_extract_button):
         if st.session_state['extracted_parameters']:
             st.session_state['parsed_parameters'] = parse_extracted_parameters(st.session_state['extracted_parameters'])
             
