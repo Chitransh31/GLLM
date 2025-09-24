@@ -6,7 +6,6 @@ hub
 langchain
 PyPDF2
 langchain_community
-langchain_chains
 peft
 pygcode
 matplotlib
