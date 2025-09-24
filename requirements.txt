@@ -1,0 +1,15 @@
+streamlit
+openai
+hub
+deeplake
+hub
+langchain
+PyPDF2
+langchain_community
+langchain_chains
+peft
+pygcode
+matplotlib
+plotly
+langgraph
+langgraph-checkpoint-sqlite
