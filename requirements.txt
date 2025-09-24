@@ -12,3 +12,4 @@ matplotlib
 plotly
 langgraph
 langgraph-checkpoint-sqlite
+langchain-openai
