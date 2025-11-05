@@ -29,8 +29,9 @@ from gllm.utils.plot_utils import plot_user_specification, refine_gcode
 import plotly.express as px  # Import Plotly Express
 from gllm.utils.params_extraction_utils import from_dict_to_text
 from langgraph.checkpoint.sqlite import SqliteSaver
+from gllm.utils.llm_router import LLMRouter, QueryType, get_optimal_model_for_step
 
-st.set_page_config(page_title="G-code Generator", layout="wide")
+st.set_page_config(page_title="G-code Generator with Intelligent Model Routing", layout="wide")
 
 
 
@@ -79,22 +80,64 @@ def main():
             "recursion_limit": 1000}
 
     # st.title("G-code Generator for CNC Machines")
+    st.title("🤖 G-code Generator with Intelligent Model Routing")
     st.write("Please describe your CNC machining task in natural language:")
     input_description = st.text_area("Task Description", height=150)
 
     pdf_files = st.file_uploader("Upload PDF files with additional knowledge (RAG)", accept_multiple_files=True, type=['pdf'])
 
-    # ⚡ Collapsible menu for model and prompt settings
-    with st.expander("⚙️ Model & Prompt Settings", expanded=False):
-        # Drop-down menu for model selection
-        model_str = st.selectbox(
-            'Choose a Language Model:', 
-            ('Zephyr-7b', 'GPT-3.5', 'Fine-tuned StarCoder',
-            'CodeLlama', 'DeepSeek-Coder-1B', 'Phi-3-Mini'), 
-            index=1,
-            help="Choose a model based on your system resources and requirements. GPT-3.5 requires API key, others use HuggingFace API."
+    # Initialize the LLM Router
+    if "llm_router" not in st.session_state:
+        st.session_state['llm_router'] = LLMRouter(
+            enable_rag=bool(pdf_files),
+            pdf_files=pdf_files
         )
-        model = setup_model(model=model_str)
+
+    # ⚡ Collapsible menu for model and prompt settings
+    with st.expander("⚙️ Model & Routing Settings", expanded=False):
+        
+        # Auto-routing toggle
+        enable_auto_routing = st.checkbox(
+            "Enable Intelligent Auto-Routing",
+            value=True,
+            help="Automatically select the best model for each task. Disable to manually choose a model."
+        )
+        
+        if not enable_auto_routing:
+            # Manual model selection
+            model_str = st.selectbox(
+                'Choose a Language Model:', 
+                ('Zephyr-7b', 'GPT-3.5', 'Fine-tuned StarCoder',
+                'CodeLlama', 'DeepSeek-Coder-1B', 'Phi-3-Mini'), 
+                index=1,
+                help="Manually choose a model. Auto-routing is disabled."
+            )
+            model = setup_model(model=model_str)
+        else:
+            # Show routing info
+            st.info("🧠 **Auto-Routing Enabled**: The system will automatically select the best model for each step:")
+            st.markdown("""
+            - **Parameter Extraction**: Fast, efficient models (Phi-3-Mini, DeepSeek-Coder)
+            - **G-code Generation**: Code specialists (Fine-tuned StarCoder, CodeLlama)
+            - **Machine Knowledge**: Knowledge-rich models (GPT-3.5, Zephyr-7b)
+            - **Refinement**: Code specialists with optimization focus
+            """)
+            
+            # User can still express preference
+            user_preference = st.selectbox(
+                'Preferred Model (optional):', 
+                ('Auto', 'GPT-3.5', 'Fine-tuned StarCoder', 'CodeLlama', 
+                 'Zephyr-7b', 'DeepSeek-Coder-1B', 'Phi-3-Mini'),
+                index=0,
+                help="Override auto-routing with your preferred model when suitable for the task."
+            )
+            
+            if user_preference == 'Auto':
+                user_preference = None
+            
+            st.session_state['user_model_preference'] = user_preference
+            model_str = user_preference if user_preference else 'Auto'
+            model = None  # Will be set dynamically per task
 
         # Let the user choose whether to use structured or unstructured prompt
         prompt_type = st.selectbox('Prompt Type:', ('Structured', 'Unstructured'), index=0)
@@ -103,13 +146,29 @@ def main():
 
         # user selects whether to use the task decomposor
         st.session_state['decompose_task'] = st.selectbox("Decompose The task Description: ", ('Yes', 'No'), index=0, disabled=disable_extract_button)
+        
+        st.session_state['enable_auto_routing'] = enable_auto_routing
 
 
+    # Setup langchain chain with intelligent routing
     if "langchain_chain" not in st.session_state:
+        if st.session_state.get('enable_auto_routing', False):
+            # Use router to get optimal model for parameter extraction
+            router = st.session_state['llm_router']
+            context = {'task': 'parameter_extraction'}
+            model, query_type, model_name = router.route(
+                input_description if input_description else "",
+                context=context,
+                user_preference=st.session_state.get('user_model_preference')
+            )
+            st.session_state['current_model_name'] = model_name
+            st.info(f"🎯 Using **{model_name}** for parameter extraction")
+        
         if pdf_files:
             st.session_state['langchain_chain'] = setup_langchain_with_rag(pdf_files, model)
         else:
             st.session_state['langchain_chain'] = setup_langchain_without_rag(model=model)
+
 
     if "extracted_parameters" not in st.session_state:
         st.session_state['extracted_parameters'] = None
@@ -172,6 +231,23 @@ def main():
 
     if st.button("Generate G-code"):
 
+        # Use intelligent routing for G-code generation
+        if st.session_state.get('enable_auto_routing', False):
+            router = st.session_state['llm_router']
+            context = {'task': 'gcode_generation'}
+            gcode_model, query_type, gcode_model_name = router.route(
+                input_description if input_description else "",
+                context=context,
+                user_preference=st.session_state.get('user_model_preference')
+            )
+            st.success(f"🎯 Using **{gcode_model_name}** for G-code generation")
+            
+            # Update the langchain chain with the new model
+            if pdf_files:
+                st.session_state['langchain_chain'] = setup_langchain_with_rag(pdf_files, gcode_model)
+            else:
+                st.session_state['langchain_chain'] = setup_langchain_without_rag(model=gcode_model)
+
         gcodes_combined = ""
 
         if not st.session_state['task_descriptions']:
@@ -225,6 +301,50 @@ def main():
     display_generated_gcode()
 
     plot_generated_gcode()
+
+    # Model Routing Dashboard
+    if st.session_state.get('enable_auto_routing', False):
+        with st.expander("🧠 Model Routing Dashboard", expanded=False):
+            st.markdown("### Intelligent Model Selection")
+            
+            router = st.session_state['llm_router']
+            
+            # Show routing explanation for current task
+            if input_description:
+                explanation = router.get_routing_explanation(
+                    input_description,
+                    context={'task': 'gcode_generation'}
+                )
+                st.markdown(explanation)
+            
+            # Model capability matrix
+            st.markdown("### Model Capability Matrix")
+            
+            import pandas as pd
+            from gllm.utils.llm_router import MODEL_REGISTRY, QueryType
+            
+            # Create capability matrix
+            matrix_data = []
+            for model_key, config in MODEL_REGISTRY.items():
+                row = {
+                    'Model': config.name,
+                    'Capability': config.capability.value.replace('_', ' ').title(),
+                    'Priority': config.priority,
+                    'G-code Gen': '✓' if QueryType.GCODE_GENERATION in config.use_cases else '',
+                    'Params': '✓' if QueryType.PARAMETER_EXTRACTION in config.use_cases else '',
+                    'Knowledge': '✓' if QueryType.MACHINE_KNOWLEDGE in config.use_cases else '',
+                    'General': '✓' if QueryType.GENERAL_QUERY in config.use_cases else '',
+                }
+                matrix_data.append(row)
+            
+            df = pd.DataFrame(matrix_data)
+            df = df.sort_values('Priority', ascending=False)
+            st.dataframe(df, use_container_width=True, hide_index=True)
+            
+            # Current session models
+            if 'current_model_name' in st.session_state:
+                st.markdown("### Models Used This Session")
+                st.success(f"**Current Model**: {st.session_state['current_model_name']}")
 
      # Debug information
     if st.checkbox("Show Debug Info"):
