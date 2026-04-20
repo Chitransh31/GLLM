@@ -21,22 +21,41 @@ from gllm.utils.prompts_utils import REQUIRED_PARAMETERS
 
 
 
+def _normalize_key(raw_key):
+    """Match a raw key from LLM output to a REQUIRED_PARAMETERS key (case-insensitive, fuzzy)."""
+    raw_lower = raw_key.strip().lower()
+    for param in REQUIRED_PARAMETERS:
+        if param.lower() == raw_lower:
+            return param
+    # Partial / substring match as fallback
+    for param in REQUIRED_PARAMETERS:
+        if param.lower() in raw_lower or raw_lower in param.lower():
+            return param
+    return raw_key.strip()
+
+
 def extract_parameters_logic(chain, task_description):
     extracted_parameters_text = extract_parameters_with_langchain(chain, task_description)
 
-    # convert the extracted parameters from string into a dictionary 
+    # Safely get the text content from the LLM response
+    if hasattr(extracted_parameters_text, 'content'):
+        response_text = extracted_parameters_text.content
+    else:
+        response_text = str(extracted_parameters_text)
+
+    # convert the extracted parameters from string into a dictionary
     extracted_parameters = {}
     cutting_tool_path = []
-    print(extracted_parameters_text.content)
-    for line in extracted_parameters_text.content.split('\n'):
+    print(response_text)
+    for line in response_text.split('\n'):
         if ':' in line:
             key, value = line.split(':', 1)
-            key = key.strip()
+            key = _normalize_key(key)
             value = value.strip().lower()  # Normalize value to lowercase
 
             # Use a regular expression to check for any form of "not specified"
             if not re.match(r"not specified", value):
-                extracted_parameters[key.strip()] = value.strip()
+                extracted_parameters[key] = value.strip()
         else:
             # capture x and y values of the cutting tool path
             match = re.search(r'(?:[xX]\s*=\s*([\d.]+)\s*[,;\s]\s*[yY]\s*=\s*([\d.]+))|(?:\(([\d.]+),\s*([\d.]+)\))', line)
@@ -49,12 +68,10 @@ def extract_parameters_logic(chain, task_description):
     # Add the cutting tool path to the extracted parameters
     if cutting_tool_path:
         extracted_parameters['Cutting Tool Path'] = cutting_tool_path
-    
-    
-     
+
     # find the required parameters which have not been assigned a value
     missing_parameters = [param for param in REQUIRED_PARAMETERS if param not in extracted_parameters]
-    
+
 
 
     return extracted_parameters, missing_parameters

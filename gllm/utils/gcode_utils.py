@@ -68,8 +68,9 @@ def generate_task_descriptions(chain, model_str, input_description):
     else:
         response = chain.invoke(subtasks_prompt)
 
-    # prepare response according to the model
-    task_descriptions = response.content.strip().split("\n\n") if model_str == 'GPT-3.5' else response.strip().split("\n\n") 
+    # prepare response — extract text content regardless of response type
+    response_text = response.content if hasattr(response, 'content') else str(response)
+    task_descriptions = response_text.strip().split("\n\n")
     
     return task_descriptions
 

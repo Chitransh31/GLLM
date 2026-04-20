@@ -172,21 +172,29 @@ class LLMRouter:
             return QueryType.PARAMETER_EXTRACTION
         
         # Check if it's G-code generation
-        if any(keyword in input_lower for keyword in ['generate g-code', 'create g-code', 'mill', 'drill', 'cut', 'cnc']):
+        if any(keyword in input_lower for keyword in [
+            'generate g-code', 'create g-code', 'mill', 'drill', 'cut', 'cnc',
+            'g-code', 'gcode', 'nc code', 'nc program', 'nc-code', 'toolpath',
+            'machining program', 'write g-code', 'write nc'
+        ]):
             return QueryType.GCODE_GENERATION
-        
+
         # Check if it's code refinement
         if any(keyword in input_lower for keyword in ['refine', 'optimize', 'improve', 'fix', 'debug']):
             return QueryType.CODE_REFINEMENT
-        
+
         # Check if it's machine-specific knowledge query
-        if any(keyword in input_lower for keyword in ['siemens', 'fanuc', 'haas', 'machine', 'controller', 'specification']):
+        if any(keyword in input_lower for keyword in [
+            'siemens', 'fanuc', 'haas', 'machine', 'controller', 'specification',
+            'spindle', 'feed rate', 'axis', 'lathe', 'milling', 'turning',
+            'tolerance', 'coolant', 'tool holder', 'workpiece', 'fixture'
+        ]):
             return QueryType.MACHINE_KNOWLEDGE
-        
+
         # Check if it's validation
         if any(keyword in input_lower for keyword in ['validate', 'check', 'verify', 'correct']):
             return QueryType.VALIDATION
-        
+
         # Default to general query
         return QueryType.GENERAL_QUERY
     
